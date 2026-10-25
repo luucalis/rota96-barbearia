@@ -2126,13 +2126,22 @@
       return;
     }
     try {
-      const { data, error } = await supa
-        .from('appointments')
-        .select('*')
-        .order('date', { ascending: true })
-        .order('start_slot', { ascending: true });
-      if (error) throw error;
-      DB.appointments = (data || []).map(rowToAppt);
+      // O Supabase devolve no máximo 1000 linhas por consulta: busca em páginas até acabar
+      const PAGE = 1000;
+      let all = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supa
+          .from('appointments')
+          .select('*')
+          .order('date', { ascending: true })
+          .order('start_slot', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        all = all.concat(data || []);
+        if (!data || data.length < PAGE) break;
+      }
+      DB.appointments = all.map(rowToAppt);
     } catch (e) {
       console.error('Erro ao carregar agendamentos:', e);
       showToast("Erro de conexão. Verifique sua internet.", "error");
